@@ -1,0 +1,16 @@
+Stats over last 10% of training
+
+Metric                              PPO + LiDAR  Empty   PPO + LiDAR  Obstacle
+============================================================================
+Mean Episode Return (MER)            +41.3309 ± 0.6655     +22.4496 ± 1.0079
+Mean Episode Length (steps)        +993.7734 ± 14.0601   +969.3514 ± 14.6656
+Timeout Rate                          +0.9977 ± 0.0007      +0.9449 ± 0.0049
+Bad-Orientation Rate                  +0.0022 ± 0.0007      +0.0128 ± 0.0035
+Base-Height Termination Rate          +0.0001 ± 0.0002      +0.0000 ± 0.0001
+Velocity Tracking Reward              +0.8975 ± 0.0136      +0.8309 ± 0.0157
+Flat Orientation Penalty              -0.0049 ± 0.0003      -0.0100 ± 0.0005
+Alive Reward                          +0.1490 ± 0.0023      +0.1454 ± 0.0025
+Obstacle Collision Rate                     N/A             +0.0423 ± 0.0034
+Object-Hit Penalty                          N/A             -0.0123 ± 0.0115
+LiDAR Proximity Penalty                     N/A             -0.0033 ± 0.0031
+============================================================================

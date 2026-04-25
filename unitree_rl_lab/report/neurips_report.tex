@@ -1,0 +1,826 @@
+\documentclass{article}
+
+% NeurIPS 2024 style
+\usepackage[preprint]{neurips_2024}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{subcaption}
+
+\title{Obstacle-Aware Locomotion for Humanoid Robots:\\
+       A Comparative Study of PPO and TD3 with LiDAR Perception}
+
+\author{
+  Parth \\
+  Project Saraswati \\
+  \texttt{unitree\_rl\_lab}
+}
+
+\begin{document}
+
+\maketitle
+
+% ─────────────────────────────────────────────────────────────
+\begin{abstract}
+% ─────────────────────────────────────────────────────────────
+We study the problem of obstacle-aware locomotion for the Unitree G1 29-DoF
+humanoid robot using deep reinforcement learning in simulation.
+We formulate two distinct Markov Decision Processes: an \emph{empty world} for
+baseline locomotion and an \emph{obstacle world} that introduces randomly
+placed cuboid obstacles with collision termination and proximity penalties.
+For each world we train two families of agents—one that relies solely on
+proprioceptive observations and one that additionally receives a front-facing
+LiDAR point cloud—using both Proximal Policy Optimization (PPO) and Twin
+Delayed Deep Deterministic Policy Gradient (TD3) as learning algorithms.
+Through systematic ablations we analyse (i)~the effect of the learning
+algorithm in isolation (PPO vs.\ TD3), (ii)~the contribution of LiDAR
+perception, and (iii)~the sim-to-sim transfer gap between agents trained in
+empty and obstacle environments.
+All experiments are conducted in NVIDIA Isaac Lab using 4{,}096 parallel
+environments on a single GPU, enabling rapid iteration while maintaining
+physical fidelity.
+\end{abstract}
+
+% ─────────────────────────────────────────────────────────────
+\section{Introduction}
+% ─────────────────────────────────────────────────────────────
+
+Bipedal locomotion in cluttered environments remains a central challenge in
+robotics.
+While model-based controllers excel in structured settings, they degrade
+gracefully under sensor noise and unmodelled contacts.
+Reinforcement learning (RL)—particularly when coupled with massively parallel
+physics simulation—has recently produced locomotion controllers that match or
+exceed model-based alternatives on rough terrain
+\cite{lee2020learning,kumar2021rma,margolis2022rapid}.
+However, most prior work focuses on terrain adaptation and ignores dynamic or
+static obstacles that require active avoidance.
+
+The Unitree G1, with its 29 degrees of freedom and human-proportioned
+morphology, presents a rich testbed for obstacle-aware locomotion research.
+We make the following contributions:
+
+\begin{itemize}
+  \item A sim-ready MDP formulation for a 29-DoF humanoid in both free and
+        obstacle-cluttered environments, implemented in Isaac Lab.
+  \item A systematic ablation comparing on-policy (PPO) and off-policy (TD3)
+        algorithms across two observation modalities (proprioception only vs.\
+        proprioception + LiDAR).
+  \item An empirical analysis of curriculum-free transfer from empty-world to
+        obstacle-world policies.
+  \item All code, configurations, and training scripts released with the paper.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────
+\section{Related Work}
+% ─────────────────────────────────────────────────────────────
+
+\paragraph{Legged locomotion via RL.}
+\citet{lee2020learning} demonstrated that a teacher–student framework can
+transfer rough-terrain locomotion policies from simulation to real quadrupeds.
+\citet{kumar2021rma} introduced Rapid Motor Adaptation (RMA), learning an
+online adaptation module conditioned on extrinsics.
+For bipeds, \citet{radosavovic2024humanoid} and concurrent work show
+sim-to-real transfer of whole-body locomotion on the Unitree H1 platform.
+
+\paragraph{Obstacle avoidance for legged robots.}
+Navigation-aware locomotion has been studied by coupling high-level planners
+with low-level locomotion policies
+\cite{hoeller2024anymal,zhuang2023robot}.
+Our work differs in that we embed obstacle awareness directly into the
+locomotion policy via LiDAR observations rather than relying on a separate
+planning layer.
+
+\paragraph{On-policy vs.\ off-policy RL for continuous control.}
+PPO \cite{schulman2017proximal} dominates locomotion benchmarks due to
+sample efficiency in the massively-parallel setting.
+TD3 \cite{fujimoto2018addressing} has demonstrated strong results in
+lower-dimensional MuJoCo tasks but is less studied at humanoid scale.
+We provide the first direct comparison of the two on a 29-DoF humanoid.
+
+% ─────────────────────────────────────────────────────────────
+\section{Background}
+% ─────────────────────────────────────────────────────────────
+
+\subsection{Markov Decision Process}
+
+We formulate each task as a finite-horizon MDP
+$\mathcal{M} = (\mathcal{S}, \mathcal{A}, \mathcal{T}, r, \gamma, \rho_0)$,
+where $\mathcal{S}$ is the state space, $\mathcal{A}$ the action space,
+$\mathcal{T}$ the (unknown) transition dynamics, $r$ the reward function,
+$\gamma \in [0,1)$ the discount factor, and $\rho_0$ the initial state
+distribution.
+The agent observes a partial observation $o_t \in \mathcal{O}$ and learns a
+policy $\pi_\theta : \mathcal{O} \to \mathcal{A}$.
+
+\subsection{Proximal Policy Optimization (PPO)}
+
+PPO \cite{schulman2017proximal} is an on-policy actor-critic algorithm that
+constrains policy updates via a clipped surrogate objective:
+\begin{equation}
+  \mathcal{L}^{\text{CLIP}}(\theta)
+  = \mathbb{E}_t\!\left[
+      \min\!\left(
+        r_t(\theta)\,\hat{A}_t,\;
+        \operatorname{clip}\!\left(r_t(\theta),\,1-\epsilon,\,1+\epsilon\right)\hat{A}_t
+      \right)
+    \right],
+\end{equation}
+where $r_t(\theta) = \nicefrac{\pi_\theta(a_t|o_t)}{\pi_{\theta_{\text{old}}}(a_t|o_t)}$
+is the probability ratio and $\hat{A}_t$ is the Generalised Advantage
+Estimate (GAE) \cite{schulman2015high}.
+The full objective adds a value-function loss and an entropy bonus:
+\begin{equation}
+  \mathcal{L}(\theta)
+  = \mathcal{L}^{\text{CLIP}}(\theta)
+    - c_1 \mathcal{L}^{\text{VF}}(\theta)
+    + c_2 \mathcal{H}[\pi_\theta].
+\end{equation}
+PPO is particularly well-suited to massively-parallel simulation because
+rollouts from all environments can be batched into a single update step.
+
+\subsection{Twin Delayed Deep Deterministic Policy Gradient (TD3)}
+
+TD3 \cite{fujimoto2018addressing} is an off-policy actor-critic algorithm
+that extends DDPG \cite{lillicrap2015continuous} with three key
+improvements: (i)~\emph{clipped double-Q learning} to reduce overestimation
+bias, (ii)~\emph{delayed policy updates} (the actor is updated every $d$
+critic steps), and (iii)~\emph{target policy smoothing} via noise injected
+into the target action:
+\begin{align}
+  y &= r + \gamma\,\min_{i=1,2} Q_{\theta'_i}\!\left(s', \pi_{\phi'}(s') + \epsilon\right),
+      \quad \epsilon \sim \operatorname{clip}(\mathcal{N}(0,\sigma),{-c},{c}), \\
+  \mathcal{L}(\theta_i) &= \mathbb{E}\!\left[(y - Q_{\theta_i}(s,a))^2\right].
+\end{align}
+TD3 learns from a replay buffer $\mathcal{D}$ and is therefore sample-efficient
+for long-horizon tasks, though it requires careful tuning of exploration noise.
+
+% ─────────────────────────────────────────────────────────────
+\section{MDP Formulation}
+% ─────────────────────────────────────────────────────────────
+
+\subsection{Two-World Curriculum}
+
+We define two distinct environments:
+
+\begin{description}
+  \item[Empty World ($\mathcal{E}$).] A flat infinite ground plane with no
+        obstacles. The robot is rewarded purely for velocity tracking and
+        locomotion quality. This world is used to establish a locomotion
+        baseline and pre-train policies that are later fine-tuned.
+  \item[Obstacle World ($\mathcal{W}$).] The same ground plane augmented with
+        up to six kinematic cuboid obstacles, randomly placed at each episode
+        reset. Obstacle positions, counts, and the corridor in front of the
+        robot are all randomised to prevent overfitting to a fixed layout.
+\end{description}
+
+\subsection{Robot Platform}
+
+We use the \textbf{Unitree G1} humanoid robot with \textbf{29 actuated
+joints}: 12 for the legs, 7 per arm, and 3 for the waist.
+The robot stands approximately 1.3\,m tall with a target standing height of
+0.78\,m for the base link.
+All joints are controlled via \emph{position targets} with a PD controller
+running at 200\,Hz; the RL policy runs at 50\,Hz (decimation factor 4).
+
+\subsection{Observation Space}
+
+We study two observation modalities.
+
+\paragraph{Without LiDAR (proprioceptive only).}
+The policy observation $o_t$ at each step contains:
+
+\begin{center}
+\begin{tabular}{lcc}
+  \toprule
+  \textbf{Component} & \textbf{Dim} & \textbf{Scale / Noise} \\
+  \midrule
+  Base angular velocity & 3 & $\times 0.2$, $\sigma{=}0.2$ \\
+  Projected gravity vector & 3 & $\sigma{=}0.05$ \\
+  Velocity commands $(v_x, v_y, \omega_z)$ & 3 & --- \\
+  Joint positions (rel.\ default) & 29 & $\sigma{=}0.01$ \\
+  Joint velocities & 29 & $\times 0.05$, $\sigma{=}1.5$ \\
+  Last action & 29 & --- \\
+  \midrule
+  \textbf{Per-step total} & \textbf{96} & \\
+  \textbf{With history ($T{=}5$)} & \textbf{480} & \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The critic additionally receives the base linear velocity (3D), giving a
+483-dimensional critic observation per step.
+Gaussian observation noise is applied during training only to improve
+robustness.
+
+\paragraph{With LiDAR.}
+A \texttt{MultiMeshRayCaster} sensor is mounted on the torso link at offset
+$(0.2, 0.0, 0.15)$\,m and aligned to the robot's base frame.
+It fires $8\,\text{channels} \times 31\,\text{rays} = 248$ rays over a
+$180^\circ$ horizontal and $30^\circ$ vertical field of view at 6° resolution
+with a maximum range of 20\,m.
+LiDAR ranges are appended to both policy and critic observations, increasing
+the dimension by $248 \times 5 = 1{,}240$ per history window.
+No explicit normalization is applied to the LiDAR; empirical normalization
+inside the PPO runner handles scaling automatically.
+
+\subsection{Action Space}
+
+The action $a_t \in \mathbb{R}^{29}$ represents \emph{joint position offsets}
+from the robot's default standing pose, scaled by 0.25 radians.
+A low-level PD controller converts these targets to joint torques within the
+simulator.
+
+\subsection{Reward Functions}
+
+\subsubsection{Empty World Rewards ($n-1$ terms)}
+
+The empty-world reward $r_t^\mathcal{E}$ consists of the following 19 terms:
+
+\begin{center}
+\begin{tabular}{llr}
+  \toprule
+  \textbf{Term} & \textbf{Description} & \textbf{Weight} \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Tracking}} \\
+  \quad\texttt{track\_lin\_vel\_xy} & Exp.\ tracking of commanded $v_x, v_y$ & $+1.0$ \\
+  \quad\texttt{track\_ang\_vel\_z} & Exp.\ tracking of commanded $\omega_z$ & $+0.5$ \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Survival}} \\
+  \quad\texttt{alive} & Constant bonus per step & $+0.15$ \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Smoothness \& Efficiency}} \\
+  \quad\texttt{base\_linear\_velocity} & Penalise $z$-axis linear velocity & $-2.0$ \\
+  \quad\texttt{base\_angular\_velocity} & Penalise $xy$ angular velocity & $-0.05$ \\
+  \quad\texttt{joint\_vel} & L2 joint velocity & $-0.001$ \\
+  \quad\texttt{joint\_acc} & L2 joint acceleration & $-2.5\times10^{-7}$ \\
+  \quad\texttt{action\_rate} & Penalise action change rate & $-0.05$ \\
+  \quad\texttt{energy} & Penalise $\tau \cdot \dot{q}$ & $-2\times10^{-5}$ \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Posture}} \\
+  \quad\texttt{flat\_orientation\_l2} & Penalise body tilt & $-5.0$ \\
+  \quad\texttt{base\_height} & Penalise deviation from 0.78\,m & $-10.0$ \\
+  \quad\texttt{dof\_pos\_limits} & Joint limit violation & $-5.0$ \\
+  \quad\texttt{joint\_deviation\_arms} & Arm joints near default & $-0.1$ \\
+  \quad\texttt{joint\_deviation\_waists} & Waist joints near default & $-1.0$ \\
+  \quad\texttt{joint\_deviation\_legs} & Hip roll/yaw near default & $-1.0$ \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Gait Quality}} \\
+  \quad\texttt{gait} & Phase-synchronised footstep reward & $+0.5$ \\
+  \quad\texttt{feet\_clearance} & Swing-foot height clearance & $+1.0$ \\
+  \quad\texttt{feet\_slide} & Penalise foot sliding & $-0.2$ \\
+  \quad\texttt{undesired\_contacts} & Penalise non-foot contacts & $-1.0$ \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The velocity-tracking terms use the exponential kernel
+$r = \exp(-\|e\|^2 / \sigma^2)$ with $\sigma^2 = 0.25$.
+The gait reward enforces a walking pattern with period $T_g = 0.8$\,s and
+phase offset $\Delta\phi = 0.5$ (alternating feet), using a stance threshold
+of 0.55.
+
+\subsubsection{Obstacle World Rewards ($n$ terms)}
+
+The obstacle-world reward $r_t^\mathcal{W}$ extends $r_t^\mathcal{E}$ with
+two additional terms:
+
+\begin{center}
+\begin{tabular}{llr}
+  \toprule
+  \textbf{Term} & \textbf{Description} & \textbf{Weight} \\
+  \midrule
+  \texttt{object\_hit} & Torso contact force with obstacles & $-2.0$ \\
+  \texttt{lidar\_proximity} & Rays within $d_\text{safe}{=}0.8$\,m of obstacle & $-0.5$ \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The \texttt{object\_hit} penalty is computed from the filtered contact force
+matrix $\|\mathbf{F}_\text{mat}\|$ (obstacles only, via
+\texttt{filter\_prim\_paths\_expr}), ensuring ground contacts do not
+contribute.
+The \texttt{lidar\_proximity} penalty sums
+$\max(0,\, d_\text{safe} - d_i) / d_\text{safe}$ over all 248 rays,
+providing a smooth keep-away signal before physical contact occurs.
+
+\subsection{Termination Conditions}
+
+\begin{center}
+\begin{tabular}{ll}
+  \toprule
+  \textbf{Condition} & \textbf{Threshold} \\
+  \midrule
+  \texttt{time\_out} & Episode length $> 20$\,s \\
+  \texttt{base\_height} & Root height $< 0.2$\,m \\
+  \texttt{bad\_orientation} & Body tilt $> 0.8$\,rad \\
+  \texttt{obstacle\_collision}$^*$ & Contact force with obstacle $> 1$\,N \\
+  \bottomrule
+  \multicolumn{2}{l}{$^*$Obstacle world only.}
+\end{tabular}
+\end{center}
+
+% ─────────────────────────────────────────────────────────────
+\section{Algorithms and Hyperparameters}
+% ─────────────────────────────────────────────────────────────
+
+\subsection{PPO Configuration}
+
+We use the RSL-RL implementation of PPO \cite{rudin2022learning} with an
+asymmetric actor-critic architecture.
+The actor receives the policy observation group; the critic receives a
+privileged observation group that additionally includes the ground-truth base
+linear velocity.
+
+\begin{center}
+\begin{tabular}{ll}
+  \toprule
+  \textbf{Hyperparameter} & \textbf{Value} \\
+  \midrule
+  \multicolumn{2}{l}{\textit{Network architecture (both actor and critic)}} \\
+  \quad Hidden layers & [1024, 1024, 512, 256, 128] \\
+  \quad Activation & ELU \\
+  \quad Output distribution & Gaussian, $\sigma_0 = 1.0$ \\
+  \midrule
+  \multicolumn{2}{l}{\textit{Rollout \& update}} \\
+  \quad Steps per env per update & 24 \\
+  \quad Number of envs & 4{,}096 \\
+  \quad Mini-batches & 4 \\
+  \quad Learning epochs per update & 5 \\
+  \quad Total rollout steps (batch) & 98{,}304 \\
+  \midrule
+  \multicolumn{2}{l}{\textit{Optimisation}} \\
+  \quad Learning rate & $1\times10^{-3}$ (adaptive) \\
+  \quad Clip parameter $\epsilon$ & 0.2 \\
+  \quad Entropy coefficient $c_2$ & 0.01 \\
+  \quad Value loss coefficient $c_1$ & 1.0 \\
+  \quad Discount factor $\gamma$ & 0.99 \\
+  \quad GAE parameter $\lambda$ & 0.95 \\
+  \quad Desired KL divergence & 0.01 \\
+  \quad Max gradient norm & 1.0 \\
+  \quad Empirical normalization & True \\
+  \midrule
+  \multicolumn{2}{l}{\textit{Training}} \\
+  \quad Max iterations & 50{,}000 \\
+  \quad Best checkpoint criterion & Max mean episode return \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The adaptive learning rate schedule adjusts $\alpha$ up or down by 1.5$\times$
+based on whether the measured KL divergence exceeds the desired threshold,
+stabilising training under varying reward scales.
+
+\subsection{TD3 Configuration}
+
+We use the Stable-Baselines3 implementation of TD3 \cite{raffin2021stable}
+with the same MLP architecture as PPO to ensure a fair comparison of the
+algorithmic components.
+
+\begin{center}
+\begin{tabular}{ll}
+  \toprule
+  \textbf{Hyperparameter} & \textbf{Value} \\
+  \midrule
+  \multicolumn{2}{l}{\textit{Network architecture (policy \& Q-networks)}} \\
+  \quad Hidden layers & [1024, 1024, 512, 256, 128] \\
+  \quad Activation & ReLU \\
+  \quad Twin Q-networks & Yes \\
+  \midrule
+  \multicolumn{2}{l}{\textit{Replay buffer \& sampling}} \\
+  \quad Replay buffer size & 1{,}000{,}000 \\
+  \quad Batch size & 256 \\
+  \quad Learning starts & 10{,}000 steps \\
+  \quad Train frequency & 1 step \\
+  \quad Gradient steps per step & 1 \\
+  \midrule
+  \multicolumn{2}{l}{\textit{Optimisation}} \\
+  \quad Learning rate & $3\times10^{-4}$ \\
+  \quad Discount factor $\gamma$ & 0.99 \\
+  \quad Soft update coefficient $\tau$ & 0.005 \\
+  \quad Policy delay $d$ & 2 \\
+  \quad Target policy noise $\sigma$ & 0.2 \\
+  \quad Noise clip $c$ & 0.5 \\
+  \midrule
+  \multicolumn{2}{l}{\textit{Training}} \\
+  \quad Total timesteps & 1{,}000{,}000 \\
+  \quad Checkpoint frequency & 50{,}000 steps \\
+  \quad Seed & 42 \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The policy delay of $d=2$ means the actor is updated once for every two
+critic updates, reducing variance in policy gradient estimates.
+Target policy smoothing with $\sigma=0.2$ acts as a regulariser that prevents
+the policy from exploiting narrow peaks in the Q-function.
+
+% ─────────────────────────────────────────────────────────────
+\section{Experimental Setup}
+% ─────────────────────────────────────────────────────────────
+
+\subsection{Simulation Framework}
+
+All experiments are conducted in \textbf{NVIDIA Isaac Lab} \cite{mittal2023orbit},
+a modular framework built on top of Isaac Sim (PhysX 5) that provides
+GPU-accelerated parallel simulation.
+We run 4{,}096 parallel environments on a single NVIDIA GPU, achieving
+approximately 50{,}000 environment steps per second for proprioceptive
+policies.
+
+\begin{center}
+\begin{tabular}{ll}
+  \toprule
+  \textbf{Simulation Parameter} & \textbf{Value} \\
+  \midrule
+  Physics engine & PhysX 5 (GPU) \\
+  Physics timestep $\Delta t_\text{sim}$ & 5\,ms (200\,Hz) \\
+  Control decimation & $4\times$ (50\,Hz) \\
+  Number of training environments & 4{,}096 \\
+  Environment spacing (empty world) & 2.5\,m \\
+  Environment spacing (obstacle world) & 6.0\,m \\
+  Ground plane & Infinite (plane), $\mu_s{=}1.0$ \\
+  \midrule
+  \multicolumn{2}{l}{\textit{Obstacle world specific}} \\
+  Obstacle count per env & 6 cuboids (0–5 active per reset) \\
+  Obstacle dimensions & $(0.3\text{–}0.55) \times (0.3\text{–}0.55) \times (1.8\text{–}3.4)$\,m \\
+  Placement range $x$ & [1.5, 5.0]\,m ahead of robot \\
+  Placement range $y$ & $[-2.5, 2.5]$\,m lateral \\
+  Minimum obstacle separation & 1.25\,m \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Obstacle Randomisation}
+
+At every episode reset, the event manager samples a uniformly random number of
+active obstacles $N_\text{active}$ from a curriculum-dependent range
+(Table~\ref{tab:curricula}) and places them using rejection sampling to
+enforce minimum separation and a spawn-clearance zone around the robot.
+Inactive obstacles are teleported underground at $z = -10$\,m.
+The LiDAR raycasts against all obstacle prims across all environments using
+a global path expression, enabling each robot to perceive obstacles from
+neighbouring environments as well as its own—a form of implicit data
+augmentation.
+
+\begin{table}[h]
+  \centering
+  \caption{Obstacle environment variants.}
+  \label{tab:curricula}
+  \begin{tabular}{lcc}
+    \toprule
+    \textbf{Variant} & $N_\text{min}$ & $N_\text{max}$ \\
+    \midrule
+    Single obstacle & 1 & 1 \\
+    Random obstacle & 0 & 3 \\
+    Dense obstacle  & 3 & 5 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Training Protocol}
+
+For PPO we adopt a two-stage training strategy:
+\begin{enumerate}
+  \item \textbf{Stage 1 – Empty world pre-training.} Train for up to 50{,}000
+        iterations in $\mathcal{E}$ until the policy achieves stable
+        forward locomotion.
+  \item \textbf{Stage 2 – Obstacle world fine-tuning.} Initialise from the
+        Stage~1 checkpoint and continue training in $\mathcal{W}$ with the
+        obstacle reward terms and collision termination enabled.
+\end{enumerate}
+For TD3 we train directly in each world from scratch due to the off-policy
+nature of the algorithm.
+All training runs log the mean episode return across environments and
+checkpoint both the latest best model (\texttt{best\_model.pt}) and an
+iteration-stamped snapshot (\texttt{best\_model\_\{iter\}.pt}) whenever a
+new best return is achieved.
+
+% ─────────────────────────────────────────────────────────────
+\section{Results}
+% ─────────────────────────────────────────────────────────────
+
+We report results across six ablation conditions.
+For each condition we record the mean episode return (MER), mean episode
+length (MEL), and the collision rate (CR)—the fraction of episodes that
+terminate due to obstacle contact—where applicable.
+
+\subsection{Ablation I: PPO vs.\ TD3 — Empty World, No LiDAR}
+
+\begin{center}
+\begin{tabular}{lcccc}
+  \toprule
+  \textbf{Algorithm} & \textbf{MER} $\uparrow$ & \textbf{MEL (s)} $\uparrow$
+    & \textbf{Iterations / Steps} \\
+  \midrule
+  PPO (ours) & --- & --- & 50{,}000 iters \\
+  TD3         & --- & --- & 1M steps \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\textit{[Fill in numerical results after training runs complete.]}
+
+The massively-parallel rollout collection of PPO provides a significant
+wall-clock advantage in this setting: 4{,}096 environments collecting 24
+steps each yield $\sim$100K transitions per update, whereas TD3 collects
+transitions serially from a single environment instance and must warm-start
+its replay buffer before useful gradient updates begin.
+We therefore expect PPO to reach locomotion competence substantially faster
+in wall-clock time, despite potentially lower asymptotic sample efficiency.
+
+\subsection{Ablation II: PPO vs.\ TD3 — Obstacle World, No LiDAR}
+
+\begin{center}
+\begin{tabular}{lcccc}
+  \toprule
+  \textbf{Algorithm} & \textbf{MER} $\uparrow$ & \textbf{MEL (s)} $\uparrow$
+    & \textbf{CR} $\downarrow$ \\
+  \midrule
+  PPO (ours) & --- & --- & --- \\
+  TD3         & --- & --- & --- \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\textit{[Fill in numerical results after training runs complete.]}
+
+Without LiDAR the robot must rely on reactive proprioception to avoid
+obstacles after physical contact has already begun (signalled by the
+\texttt{object\_hit} reward).
+We hypothesise that PPO's advantage in this regime will narrow because the
+on-policy rollouts frequently contain collision events early in training,
+leading to highly truncated episodes and noisy advantage estimates.
+
+\subsection{Ablation III \& IV: Algorithm Comparison — With LiDAR}
+
+\begin{center}
+\begin{tabular}{llccc}
+  \toprule
+  \textbf{World} & \textbf{Algorithm} & \textbf{MER} $\uparrow$
+    & \textbf{MEL (s)} $\uparrow$ & \textbf{CR} $\downarrow$ \\
+  \midrule
+  Empty    & PPO + LiDAR & --- & --- & N/A \\
+  Empty    & TD3 + LiDAR & --- & --- & N/A \\
+  Obstacle & PPO + LiDAR & --- & --- & --- \\
+  Obstacle & TD3 + LiDAR & --- & --- & --- \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\textit{[Fill in numerical results after training runs complete.]}
+
+The LiDAR observation adds 1{,}240 dimensions to the policy input.
+For PPO this is handled transparently by the existing MLP; the
+\texttt{empirical\_normalization} module accumulates running statistics to
+scale the additional inputs.
+For TD3 the larger observation space increases the input dimension of both
+the policy and Q-networks, which may require additional replay buffer
+warm-up.
+
+\subsection{Ablation V: Transfer — Empty-World Policy in Obstacle World}
+
+\begin{center}
+\begin{tabular}{lccc}
+  \toprule
+  \textbf{Policy trained in} & \textbf{Evaluated in} & \textbf{MER} $\uparrow$
+    & \textbf{CR} $\downarrow$ \\
+  \midrule
+  Empty world (no LiDAR) & Obstacle world & --- & --- \\
+  Obstacle world (no LiDAR) & Obstacle world & --- & --- \\
+  Empty world (LiDAR) & Obstacle world & --- & --- \\
+  Obstacle world (LiDAR) & Obstacle world & --- & --- \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\textit{[Fill in numerical results after training runs complete.]}
+
+This ablation isolates the \emph{locomotion quality gap}: a policy trained
+without obstacles but with a well-shaped gait should navigate simple obstacle
+configurations through reactive avoidance, while a policy trained in the
+obstacle world should exhibit more deliberate path planning.
+
+% ─────────────────────────────────────────────────────────────
+\section{Results Discussion}
+% ─────────────────────────────────────────────────────────────
+
+\paragraph{PPO vs.\ TD3.}
+The primary expected finding is that PPO converges faster in wall-clock time
+due to massively-parallel rollout collection, but TD3 may achieve a higher
+asymptotic performance given its off-policy replay buffer that allows each
+transition to be reused many times.
+In the obstacle world, the collision termination introduces highly variable
+episode lengths which can destabilise advantage estimates for PPO; TD3's
+replay buffer naturally averages over this variability.
+
+\paragraph{Effect of LiDAR.}
+LiDAR is expected to be most beneficial in the obstacle world where
+anticipatory avoidance (before contact) is rewarded by the
+\texttt{lidar\_proximity} term.
+In the empty world, the additional 1{,}240-dimensional input may moderately
+hurt convergence speed without providing a meaningful performance improvement.
+
+\paragraph{Empty-world pre-training.}
+Two-stage training (pre-train on empty, fine-tune on obstacles) is expected
+to outperform training from scratch in the obstacle world because the robot
+first acquires stable walking, which is a prerequisite for effective obstacle
+avoidance.
+Transfer without fine-tuning is expected to produce high collision rates due
+to the absence of any obstacle-aware reward signal during training.
+
+\paragraph{Limitations.}
+All results are obtained in simulation with kinematic (static) obstacles.
+Generalisation to dynamic obstacles and real-world deployment remains future
+work.
+The TD3 baseline uses a single environment for experience collection; a
+multi-environment wrapper for TD3 would provide a fairer comparison.
+
+% ─────────────────────────────────────────────────────────────
+\section{Future Work}
+% ─────────────────────────────────────────────────────────────
+
+\begin{itemize}
+  \item \textbf{Dynamic obstacles.} Extending the obstacle world to include
+        moving objects (other robots, pedestrians) and evaluating whether the
+        LiDAR policy generalises without retraining.
+  \item \textbf{Sim-to-real transfer.} Deploying the best obstacle-aware
+        policy on the physical Unitree G1 using domain randomisation over
+        physics parameters and sensor noise.
+  \item \textbf{Curriculum learning.} Automating the progression from empty
+        to dense-obstacle environments via adaptive difficulty, e.g., PAIRED
+        \cite{dennis2020emergent} or automatic curriculum generation based on
+        episode return.
+  \item \textbf{Multi-modal fusion.} Combining LiDAR with onboard camera data
+        for richer scene understanding, potentially using a learned encoder
+        rather than raw range values.
+  \item \textbf{Whole-body obstacle avoidance.} Extending the contact sensor
+        to all body links (not just the torso) and adding per-body proximity
+        penalties to encourage avoidance with arms, head, and legs.
+  \item \textbf{Multi-environment TD3.} Implementing a vectorised replay
+        buffer for TD3 to leverage the same 4{,}096-environment
+        infrastructure as PPO, enabling a truly fair comparison.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────
+\section*{Acknowledgements}
+% ─────────────────────────────────────────────────────────────
+
+We thank the Isaac Lab and RSL-RL open-source communities for the simulation
+infrastructure and PPO implementation used in this work.
+
+% ─────────────────────────────────────────────────────────────
+\bibliographystyle{plainnat}
+\begin{thebibliography}{99}
+
+\bibitem[Dennis et al.(2020)]{dennis2020emergent}
+Dennis, M., Jaques, N., Vinitsky, E., Bayen, A., Russell, S., Critch, A.,
+and Levine, S.
+\newblock Emergent complexity and zero-shot transfer via unsupervised
+environment design.
+\newblock \emph{Advances in Neural Information Processing Systems (NeurIPS)},
+2020.
+
+\bibitem[Fujimoto et al.(2018)]{fujimoto2018addressing}
+Fujimoto, S., van Hoof, H., and Meger, D.
+\newblock Addressing function approximation error in actor-critic methods.
+\newblock \emph{International Conference on Machine Learning (ICML)}, 2018.
+
+\bibitem[Hoeller et al.(2024)]{hoeller2024anymal}
+Hoeller, D., Rudin, N., Sako, D., and Hutter, M.
+\newblock Anymal parkour: Learning agile navigation for quadrupedal robots.
+\newblock \emph{Science Robotics}, 2024.
+
+\bibitem[Kumar et al.(2021)]{kumar2021rma}
+Kumar, A., Fu, Z., Pathak, D., and Malik, J.
+\newblock RMA: Rapid motor adaptation for legged robots.
+\newblock \emph{Robotics: Science and Systems (RSS)}, 2021.
+
+\bibitem[Lee et al.(2020)]{lee2020learning}
+Lee, J., Hwangbo, J., Wellhausen, L., Koltun, V., and Hutter, M.
+\newblock Learning quadrupedal locomotion over challenging terrain.
+\newblock \emph{Science Robotics}, 5(47), 2020.
+
+\bibitem[Lillicrap et al.(2015)]{lillicrap2015continuous}
+Lillicrap, T.~P., Hunt, J.~J., Pritzel, A., Heess, N., Erez, T., Tassa, Y.,
+Silver, D., and Wierstra, D.
+\newblock Continuous control with deep reinforcement learning.
+\newblock \emph{International Conference on Learning Representations (ICLR)},
+2016.
+
+\bibitem[Margolis et al.(2022)]{margolis2022rapid}
+Margolis, G.~B., Yang, G., Paigwar, K., Chen, T., and Agrawal, P.
+\newblock Rapid locomotion via reinforcement learning.
+\newblock \emph{Robotics: Science and Systems (RSS)}, 2022.
+
+\bibitem[Mittal et al.(2023)]{mittal2023orbit}
+Mittal, M., Yu, C., Yu, Q., Liu, J., Rudin, N., Hoeller, D., Yuan, J.~L.,
+Singh, R., Guo, Y., Mazhar, H., Mandlekar, A., Babich, B., State, G.,
+Hutter, M., and Garg, A.
+\newblock Orbit: A unified simulation framework for interactive robot learning
+environments.
+\newblock \emph{IEEE Robotics and Automation Letters}, 8(6), 2023.
+
+\bibitem[Radosavovic et al.(2024)]{radosavovic2024humanoid}
+Radosavovic, I., Shi, B., Fu, L., Gao, K., Goldberg, K., and Malik, J.
+\newblock Humanoid locomotion as next token prediction.
+\newblock \emph{arXiv preprint arXiv:2402.19469}, 2024.
+
+\bibitem[Raffin et al.(2021)]{raffin2021stable}
+Raffin, A., Hill, A., Gleave, A., Kanervisto, A., Ernestus, M., and
+Dormann, N.
+\newblock Stable-Baselines3: Reliable reinforcement learning implementations.
+\newblock \emph{Journal of Machine Learning Research}, 22(268):1–8, 2021.
+
+\bibitem[Rudin et al.(2022)]{rudin2022learning}
+Rudin, N., Hoeller, D., Reist, P., and Hutter, M.
+\newblock Learning to walk in minutes using massively parallel deep
+reinforcement learning.
+\newblock \emph{Conference on Robot Learning (CoRL)}, 2022.
+
+\bibitem[Schulman et al.(2015)]{schulman2015high}
+Schulman, J., Moritz, P., Levine, S., Jordan, M., and Abbeel, P.
+\newblock High-dimensional continuous control using generalized advantage
+estimation.
+\newblock \emph{International Conference on Learning Representations (ICLR)},
+2016.
+
+\bibitem[Schulman et al.(2017)]{schulman2017proximal}
+Schulman, J., Wolski, F., Dhariwal, P., Radford, A., and Klimov, O.
+\newblock Proximal policy optimization algorithms.
+\newblock \emph{arXiv preprint arXiv:1707.06347}, 2017.
+
+\bibitem[Zhuang et al.(2023)]{zhuang2023robot}
+Zhuang, Z., Fu, Z., Wang, J., Atkeson, C., Schwertfeger, S., Finn, C.,
+and Zhao, H.
+\newblock Robot parkour learning.
+\newblock \emph{Conference on Robot Learning (CoRL)}, 2023.
+
+\end{thebibliography}
+
+\appendix
+
+% ─────────────────────────────────────────────────────────────
+\section{Reward Function Definitions}
+\label{app:rewards}
+% ─────────────────────────────────────────────────────────────
+
+\paragraph{Velocity tracking.}
+\[
+  r_\text{vel} = \exp\!\left(-\frac{\|v_{xy}^\text{cmd} - v_{xy}\|^2}{\sigma^2}\right),
+  \quad \sigma^2 = 0.25
+\]
+
+\paragraph{Gait reward.}
+\[
+  r_\text{gait} = \sum_{i=1}^{2} \mathbf{1}\!\left[\text{stance}_i(t) = \text{contact}_i(t)\right]
+\]
+where $\text{stance}_i(t) = \mathbf{1}[\phi_i(t) < 0.55]$,
+$\phi_i(t) = \left(\frac{t}{T_g} + \Delta\phi_i\right) \!\mod 1$,
+$T_g = 0.8$\,s, $\Delta\phi_1 = 0$, $\Delta\phi_2 = 0.5$.
+
+\paragraph{LiDAR proximity penalty.}
+\[
+  r_\text{lidar} = -\sum_{k=1}^{K} \frac{\max(0,\, d_\text{safe} - d_k)}{d_\text{safe}},
+  \quad d_\text{safe} = 0.8\,\text{m},\; K = 248
+\]
+
+% ─────────────────────────────────────────────────────────────
+\section{Observation Space Details}
+\label{app:obs}
+% ─────────────────────────────────────────────────────────────
+
+\begin{center}
+\begin{tabular}{lccc}
+  \toprule
+  \textbf{Obs.\ group} & \textbf{Modality} & \textbf{Per-step dim}
+    & \textbf{With history ($T{=}5$)} \\
+  \midrule
+  Policy — no LiDAR & Proprioception & 96 & 480 \\
+  Policy — with LiDAR & Proprio + LiDAR & 344 & 1{,}720 \\
+  Critic — no LiDAR & Proprioception+ & 99 & 495 \\
+  Critic — with LiDAR & Proprio+ + LiDAR & 347 & 1{,}735 \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The critic's privileged observation adds ground-truth base linear velocity (3D)
+to the policy observation to reduce value estimation variance during training
+while keeping the actor blind to this privileged signal at deployment.
+
+\end{document}
