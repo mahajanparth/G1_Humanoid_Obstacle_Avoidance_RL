@@ -21,7 +21,7 @@ Reinforcement learning research for the **Unitree G1 29-DOF humanoid robot** stu
 
 ## Demo
 
-https://github.com/mahajanparth/G1_Humanoid_Obstacle_Avoidance_RL/raw/main/unitree_rl_lab/report/obstacle_avoidance_dense_scene.mp4
+<video src="https://github.com/mahajanparth/G1_Humanoid_Obstacle_Avoidance_RL/raw/main/unitree_rl_lab/report/obstacle_avoidance_dense_scene.mp4" controls width="100%"></video>
 
 ---
 
