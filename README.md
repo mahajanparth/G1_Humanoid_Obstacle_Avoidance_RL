@@ -61,7 +61,7 @@ Parth Mahajan, Utkarsh Rai — NeurIPS 2025 format
 | PPO obstacle no-LiDAR | [checkpoints/ppo_obstacle_no_lidar/model_0.pt](unitree_rl_lab/checkpoints/ppo_obstacle_no_lidar/model_0.pt) | 66 MB | II |
 | PPO LiDAR rough terrain | [checkpoints/ppo_lidar_rough/model_0.pt](unitree_rl_lab/checkpoints/ppo_lidar_rough/model_0.pt) | 53 MB | pre-train |
 | **PPO LiDAR + obstacles (best)** | [checkpoints/ppo_lidar_obstacle_random/model_1200.pt](unitree_rl_lab/checkpoints/ppo_lidar_obstacle_random/model_1200.pt) | 164 MB | **III/IV** |
-| TD3 no-LiDAR | [GitHub Releases →](../../releases/tag/v1.0-checkpoints) | 329 MB | I/II comparison |
+| TD3 no-LiDAR | [checkpoints/td3_obstacle_random/model_50000_steps.zip](unitree_rl_lab/checkpoints/td3_obstacle_random/model_50000_steps.zip) | 329 MB | I/II comparison |
 
 **ONNX deploy policies** (for on-robot inference via ONNX Runtime) are in-repo:
 - [`deploy/robots/g1_29dof/config/policy/velocity/v0/exported/policy.onnx`](unitree_rl_lab/deploy/robots/g1_29dof/config/policy/velocity/v0/exported/policy.onnx) — velocity-tracking baseline

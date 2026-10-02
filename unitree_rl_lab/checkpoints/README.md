@@ -26,13 +26,11 @@ All `.pt` files are stored via **Git LFS**. Run `git lfs pull` after cloning to 
 
 ## TD3 Checkpoint (Stable-Baselines3)
 
-The TD3 checkpoint (`model_50000_steps.zip`, 329 MB) is too large for Git LFS free tier and is distributed via **GitHub Releases**:
-
-[Download from GitHub Releases →](../../releases/tag/v1.0-checkpoints)
-
+### `td3_obstacle_random/model_50000_steps.zip` — 329 MB
 - **Task:** `Unitree-G1-29dof-Random-Obstacle-Velocity`
 - **Ablations I/II comparison.** TD3 trained for 50,000 steps.
 - TD3+LiDAR runs are omitted — they represent a failure mode (MER = −2.12, 0% timeout).
+- Stored via Git LFS. Run `git lfs pull` to download.
 
 ## Loading a Checkpoint
 
