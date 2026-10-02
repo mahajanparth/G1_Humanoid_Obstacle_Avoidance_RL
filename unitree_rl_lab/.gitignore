@@ -83,3 +83,7 @@ datasets
 # Local heavy assets
 /unitree_model/
 /unitree_ros/
+neurips_2025.sty
+*.log
+*.aux
+*.out
