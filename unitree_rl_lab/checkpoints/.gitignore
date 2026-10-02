@@ -1,0 +1,3 @@
+# Allow .pt and .zip files in this directory (tracked via Git LFS)
+!*.pt
+!*.zip
