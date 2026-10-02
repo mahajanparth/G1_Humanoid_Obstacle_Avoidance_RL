@@ -21,7 +21,9 @@ Reinforcement learning research for the **Unitree G1 29-DOF humanoid robot** stu
 
 ## Demo
 
-<video src="https://github.com/mahajanparth/G1_Humanoid_Obstacle_Avoidance_RL/raw/main/unitree_rl_lab/report/obstacle_avoidance_dense_scene.mp4" controls width="100%"></video>
+![PPO + LiDAR obstacle avoidance in dense scene](unitree_rl_lab/report/obstacle_avoidance_demo.gif)
+
+*Full video: [obstacle_avoidance_dense_scene.mp4](unitree_rl_lab/report/obstacle_avoidance_dense_scene.mp4) (5.1 MB, Git LFS — run `git lfs pull` to download)*
 
 ---
 
@@ -52,7 +54,7 @@ Reinforcement learning research for the **Unitree G1 29-DOF humanoid robot** stu
 **Obstacle-Aware Locomotion for Humanoid Robots: A Comparative Study of PPO and TD3 with LiDAR Perception**
 Parth Mahajan, Utkarsh Rai — NeurIPS 2025 format
 
-- [PDF](unitree_rl_lab/report/paper.pdf)
+- [PDF](paper.pdf)
 - [LaTeX source](unitree_rl_lab/report/paper.tex)
 
 ---
