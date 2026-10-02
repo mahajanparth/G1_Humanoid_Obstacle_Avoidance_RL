@@ -42,14 +42,14 @@ humanoid robot using deep reinforcement learning in simulation.
 We formulate two distinct Markov Decision Processes: an \emph{empty world} for
 baseline locomotion and an \emph{obstacle world} that introduces randomly
 placed cuboid obstacles with collision termination and proximity penalties.
-For each world we train two families of agents—one relying solely on
+For each world we train two families of agents-one relying solely on
 proprioceptive observations and one additionally receiving a front-facing
-LiDAR point cloud—using both Proximal Policy Optimization (PPO) and Twin
+LiDAR point cloud-using both Proximal Policy Optimization (PPO) and Twin
 Delayed Deep Deterministic Policy Gradient (TD3).
 Through systematic ablations we find: (i)~PPO outperforms TD3 across all
 settings due to its massively-parallel rollout collection; (ii)~LiDAR
 perception raises PPO's obstacle-world timeout rate from near-zero to $94.5\%$,
-but TD3 \emph{cannot} leverage LiDAR at all—episode lengths actually
+but TD3 \emph{cannot} leverage LiDAR at all-episode lengths actually
 \emph{decrease} relative to TD3 without LiDAR, revealing that serial
 single-environment training is insufficient for $1{,}720$-dimensional
 observations; and (iii)~two-stage pre-training followed by obstacle-world
@@ -629,12 +629,12 @@ nature of the algorithm.
 
 We report results across six ablation conditions.
 For each condition we record the mean episode return (MER), mean episode
-length (MEL), and the collision rate (CR)—the fraction of episodes that
-terminate due to obstacle contact—where applicable.
+length (MEL), and the collision rate (CR)-the fraction of episodes that
+terminate due to obstacle contact-where applicable.
 Training statistics are reported as mean $\pm$ std over the final 10\% of
 training iterations; eval statistics are computed over 500 held-out episodes.
 
-\subsection{Ablation I: PPO vs.\ TD3 — Empty World, No LiDAR}
+\subsection{Ablation I: PPO vs.\ TD3 - Empty World, No LiDAR}
 
 \begin{center}
 \begin{tabular}{lcccc}
@@ -653,7 +653,7 @@ rate, confirming the wall-clock advantage of massively-parallel on-policy
 collection. TD3's lower timeout rate reflects the warm-up phase required to
 populate the replay buffer before useful gradient updates begin.
 
-\subsection{Ablation II: PPO vs.\ TD3 — Obstacle World, No LiDAR}
+\subsection{Ablation II: PPO vs.\ TD3 - Obstacle World, No LiDAR}
 
 \begin{center}
 \begin{tabular}{lcccc}
@@ -674,7 +674,7 @@ PPO, suggesting more aggressive but less stable behaviour. The near-zero
 timeout rates indicate that termination is overwhelmingly driven by obstacle
 collisions and subsequent falls rather than locomotion failure.
 
-\subsection{Ablation III \& IV: Algorithm Comparison — With LiDAR}
+\subsection{Ablation III \& IV: Algorithm Comparison - With LiDAR}
 
 \begin{center}
 \begin{tabular}{llcccc}
@@ -700,7 +700,7 @@ By contrast, TD3 with LiDAR fails to learn in both settings: episode lengths
 collapse to $2.0$\,s (empty) and $1.0$\,s (obstacle), with $100\%$
 bad-orientation termination in all episodes.
 The obstacle collision rate is $0\%$ for TD3+LiDAR not because the robot
-avoids obstacles, but because it falls before reaching them—identical to the
+avoids obstacles, but because it falls before reaching them-identical to the
 behaviour of the empty-world transfer policy in Ablation~V.
 This failure is attributable to the mismatch between TD3's single-environment
 serial rollout collection and the $1{,}720$-dimensional LiDAR observation
@@ -813,7 +813,7 @@ the obstacle world.
     \label{fig:ppo_lidar_obstacle_world_grid}
 \end{figure}
 
-\subsection{Ablation V: Transfer — Empty-World Policy in Obstacle World}
+\subsection{Ablation V: Transfer - Empty-World Policy in Obstacle World}
 
 \begin{center}
 \begin{tabular}{lcccc}
@@ -834,7 +834,7 @@ policy survives $\mathbf{34\times}$ longer ($16.0$\,s vs.\ $0.46$\,s) and
 achieves a $\mathbf{53.9}$-point higher mean return than the empty-world
 policy when both are evaluated in the dense obstacle world.
 
-Notably, the collision rate is $0\%$ for \emph{both} policies—the
+Notably, the collision rate is $0\%$ for \emph{both} policies-the
 empty-world transfer policy falls over (bad orientation $49.2\%$, base height
 $23.4\%$) before reaching the obstacles, rather than colliding with them.
 This indicates that the failure mode is locomotion destabilisation from
@@ -921,7 +921,7 @@ collision penalties.
 With LiDAR observations, the gap becomes \emph{qualitative}: PPO learns
 highly capable obstacle-aware locomotion ($94.5\%$ timeout rate in obstacle
 world) while TD3 fails to stand up at all ($\leq 2$\,s episodes, 100\%
-fall rate). This is the most striking finding of our study—serial off-policy
+fall rate). This is the most striking finding of our study-serial off-policy
 training cannot handle $1{,}720$-dimensional sensory inputs within a
 practical budget, even though the same architecture and reward succeed
 with PPO.
@@ -942,7 +942,7 @@ lengths ($2.0$\,s empty, $1.0$\,s obstacle) are \emph{worse} than TD3
 without LiDAR ($14.1$\,s empty, $2.1$\,s obstacle).
 This reveals a fundamental limitation of off-policy serial training for
 high-dimensional sensory inputs: PPO's massively-parallel rollout collection
-is not merely faster—it is a prerequisite for learning from $1{,}720$-dim
+is not merely faster-it is a prerequisite for learning from $1{,}720$-dim
 observations within a practical compute budget.
 
 \paragraph{Transfer.}
@@ -1116,10 +1116,10 @@ $T_g = 0.8$\,s, $\Delta\phi_1 = 0$, $\Delta\phi_2 = 0.5$.
   \textbf{Obs.\ group} & \textbf{Modality} & \textbf{Per-step dim}
     & \textbf{With history ($T{=}5$)} \\
   \midrule
-  Policy — no LiDAR & Proprioception & 96 & 480 \\
-  Policy — with LiDAR & Proprio + LiDAR & 344 & 1{,}720 \\
-  Critic — no LiDAR & Proprioception+ & 99 & 495 \\
-  Critic — with LiDAR & Proprio+ + LiDAR & 347 & 1{,}735 \\
+  Policy - no LiDAR & Proprioception & 96 & 480 \\
+  Policy - with LiDAR & Proprio + LiDAR & 344 & 1{,}720 \\
+  Critic - no LiDAR & Proprioception+ & 99 & 495 \\
+  Critic - with LiDAR & Proprio+ + LiDAR & 347 & 1{,}735 \\
   \bottomrule
 \end{tabular}
 \end{center}

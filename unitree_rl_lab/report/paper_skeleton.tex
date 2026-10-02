@@ -45,9 +45,9 @@ humanoid robot using deep reinforcement learning in simulation.
 We formulate two distinct Markov Decision Processes: an \emph{empty world} for
 baseline locomotion and an \emph{obstacle world} that introduces randomly
 placed cuboid obstacles with collision termination and proximity penalties.
-For each world we train two families of agents—one that relies solely on
+For each world we train two families of agents-one that relies solely on
 proprioceptive observations and one that additionally receives a front-facing
-LiDAR point cloud—using both Proximal Policy Optimization (PPO) and Twin
+LiDAR point cloud-using both Proximal Policy Optimization (PPO) and Twin
 Delayed Deep Deterministic Policy Gradient (TD3) as learning algorithms.
 Through systematic ablations we analyse (i)~the effect of the learning
 algorithm in isolation (PPO vs.\ TD3), (ii)~the contribution of LiDAR
@@ -66,8 +66,8 @@ Bipedal locomotion in cluttered environments remains a central challenge in
 robotics.
 While model-based controllers excel in structured settings, they degrade
 gracefully under sensor noise and unmodelled contacts.
-Reinforcement learning (RL)—particularly when coupled with massively parallel
-physics simulation—has recently produced locomotion controllers that match or
+Reinforcement learning (RL)-particularly when coupled with massively parallel
+physics simulation-has recently produced locomotion controllers that match or
 exceed model-based alternatives on rough terrain
 \cite{lee2020learning,kumar2021rma,margolis2022rapid}.
 However, most prior work focuses on terrain adaptation and ignores dynamic or
@@ -477,7 +477,7 @@ enforce minimum separation and a spawn-clearance zone around the robot.
 Inactive obstacles are teleported underground at $z = -10$\,m.
 The LiDAR raycasts against all obstacle prims across all environments using
 a global path expression, enabling each robot to perceive obstacles from
-neighbouring environments as well as its own—a form of implicit data
+neighbouring environments as well as its own-a form of implicit data
 augmentation.
 
 \begin{table}[h]
@@ -519,10 +519,10 @@ new best return is achieved.
 
 We report results across six ablation conditions.
 For each condition we record the mean episode return (MER), mean episode
-length (MEL), and the collision rate (CR)—the fraction of episodes that
-terminate due to obstacle contact—where applicable.
+length (MEL), and the collision rate (CR)-the fraction of episodes that
+terminate due to obstacle contact-where applicable.
 
-\subsection{Ablation I: PPO vs.\ TD3 — Empty World, No LiDAR}
+\subsection{Ablation I: PPO vs.\ TD3 - Empty World, No LiDAR}
 
 \begin{center}
 \begin{tabular}{lcccc}
@@ -546,7 +546,7 @@ its replay buffer before useful gradient updates begin.
 We therefore expect PPO to reach locomotion competence substantially faster
 in wall-clock time, despite potentially lower asymptotic sample efficiency.
 
-\subsection{Ablation II: PPO vs.\ TD3 — Obstacle World, No LiDAR}
+\subsection{Ablation II: PPO vs.\ TD3 - Obstacle World, No LiDAR}
 
 \begin{center}
 \begin{tabular}{lcccc}
@@ -569,7 +569,7 @@ We hypothesise that PPO's advantage in this regime will narrow because the
 on-policy rollouts frequently contain collision events early in training,
 leading to highly truncated episodes and noisy advantage estimates.
 
-\subsection{Ablation III \& IV: Algorithm Comparison — With LiDAR}
+\subsection{Ablation III \& IV: Algorithm Comparison - With LiDAR}
 
 \begin{center}
 \begin{tabular}{llccc}
@@ -595,7 +595,7 @@ For TD3 the larger observation space increases the input dimension of both
 the policy and Q-networks, which may require additional replay buffer
 warm-up.
 
-\subsection{Ablation V: Transfer — Empty-World Policy in Obstacle World}
+\subsection{Ablation V: Transfer - Empty-World Policy in Obstacle World}
 
 \begin{center}
 \begin{tabular}{lccc}
@@ -813,10 +813,10 @@ $T_g = 0.8$\,s, $\Delta\phi_1 = 0$, $\Delta\phi_2 = 0.5$.
   \textbf{Obs.\ group} & \textbf{Modality} & \textbf{Per-step dim}
     & \textbf{With history ($T{=}5$)} \\
   \midrule
-  Policy — no LiDAR & Proprioception & 96 & 480 \\
-  Policy — with LiDAR & Proprio + LiDAR & 344 & 1{,}720 \\
-  Critic — no LiDAR & Proprioception+ & 99 & 495 \\
-  Critic — with LiDAR & Proprio+ + LiDAR & 347 & 1{,}735 \\
+  Policy - no LiDAR & Proprioception & 96 & 480 \\
+  Policy - with LiDAR & Proprio + LiDAR & 344 & 1{,}720 \\
+  Critic - no LiDAR & Proprioception+ & 99 & 495 \\
+  Critic - with LiDAR & Proprio+ + LiDAR & 347 & 1{,}735 \\
   \bottomrule
 \end{tabular}
 \end{center}

@@ -23,7 +23,7 @@ Reinforcement learning research for the **Unitree G1 29-DOF humanoid robot** stu
 
 ![PPO + LiDAR obstacle avoidance in dense scene](unitree_rl_lab/report/obstacle_avoidance_demo.gif)
 
-*Full video: [obstacle_avoidance_dense_scene.mp4](unitree_rl_lab/report/obstacle_avoidance_dense_scene.mp4) (5.1 MB, Git LFS — run `git lfs pull` to download)*
+*Full video: [obstacle_avoidance_dense_scene.mp4](unitree_rl_lab/report/obstacle_avoidance_dense_scene.mp4) (5.1 MB, Git LFS - run `git lfs pull` to download)*
 
 ---
 
@@ -31,14 +31,14 @@ Reinforcement learning research for the **Unitree G1 29-DOF humanoid robot** stu
 
 | Ablation | Algorithm | World | MEL (s) ↑ | Timeout ↑ | Collision ↓ |
 |---|---|---|---|---|---|
-| I | PPO | Empty, no LiDAR | 18.4 ± 0.4 | 83.8% | — |
-| I | TD3 | Empty, no LiDAR | 14.0 ± 0.6 | 64.8% | — |
+| I | PPO | Empty, no LiDAR | 18.4 ± 0.4 | 83.8% | N/A |
+| I | TD3 | Empty, no LiDAR | 14.0 ± 0.6 | 64.8% | N/A |
 | II | PPO | Obstacle, no LiDAR | 1.9 ± 0.3 | 0.5% | high |
 | II | TD3 | Obstacle, no LiDAR | 2.1 ± 0.3 | 12.5% | high |
-| III | **PPO + LiDAR** | **Empty** | **19.9 ± 0.3** | **99.8%** | — |
-| III | TD3 + LiDAR | Empty | 2.0 ± 0.1 | 0.0% | — |
+| III | **PPO + LiDAR** | **Empty** | **19.9 ± 0.3** | **99.8%** | N/A |
+| III | TD3 + LiDAR | Empty | 2.0 ± 0.1 | 0.0% | N/A |
 | IV | **PPO + LiDAR** | **Obstacle (fine-tune)** | **19.4 ± 0.3** | **94.5%** | **4.2%** |
-| V | PPO + LiDAR (zero-shot) | Obstacle | 0.46 | ~0% | — |
+| V | PPO + LiDAR (zero-shot) | Obstacle | 0.46 | ~0% | N/A |
 | V | **PPO + LiDAR (fine-tuned)** | **Obstacle** | **16.0 ± 7.7** | high | low |
 
 *MEL = Mean Episode Length; episode timeout at 20 s.*
@@ -52,7 +52,7 @@ Reinforcement learning research for the **Unitree G1 29-DOF humanoid robot** stu
 ## Paper
 
 **Obstacle-Aware Locomotion for Humanoid Robots: A Comparative Study of PPO and TD3 with LiDAR Perception**
-Parth Mahajan, Utkarsh Rai — NeurIPS 2025 format
+Parth Mahajan, Utkarsh Rai - NeurIPS 2025 format
 
 - [PDF](paper.pdf)
 - [LaTeX source](unitree_rl_lab/report/paper.tex)
@@ -61,7 +61,7 @@ Parth Mahajan, Utkarsh Rai — NeurIPS 2025 format
 
 ## Trained Policies and Checkpoints
 
-`.pt` checkpoints are stored via **Git LFS** — run `git lfs pull` after cloning.
+`.pt` checkpoints are stored via **Git LFS** - run `git lfs pull` after cloning.
 
 | Policy | Checkpoint | Size | Ablation |
 |---|---|---|---|
@@ -72,7 +72,7 @@ Parth Mahajan, Utkarsh Rai — NeurIPS 2025 format
 | TD3 no-LiDAR | [checkpoints/td3_obstacle_random/model_50000_steps.zip](unitree_rl_lab/checkpoints/td3_obstacle_random/model_50000_steps.zip) | 329 MB | I/II comparison |
 
 **ONNX deploy policies** (for on-robot inference via ONNX Runtime) are in-repo:
-- [`deploy/robots/g1_29dof/config/policy/velocity/v0/exported/policy.onnx`](unitree_rl_lab/deploy/robots/g1_29dof/config/policy/velocity/v0/exported/policy.onnx) — velocity-tracking baseline
+- [`deploy/robots/g1_29dof/config/policy/velocity/v0/exported/policy.onnx`](unitree_rl_lab/deploy/robots/g1_29dof/config/policy/velocity/v0/exported/policy.onnx) - velocity-tracking baseline
 - [`deploy/robots/g1_29dof/config/policy/mimic/dance_102/exported/policy.onnx`](unitree_rl_lab/deploy/robots/g1_29dof/config/policy/mimic/dance_102/exported/policy.onnx)
 - [`deploy/robots/g1_29dof/config/policy/mimic/gangnam_style/exported/policy.onnx`](unitree_rl_lab/deploy/robots/g1_29dof/config/policy/mimic/gangnam_style/exported/policy.onnx)
 
